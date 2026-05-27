@@ -98,13 +98,6 @@ export default function DashboardPage() {
 
   // TEMPO REAL
   useEffect(() => {
-    const logado = localStorage.getItem("logado");
-
-    if (!logado) {
-      window.location.href = "/login";
-      return;
-    }
-
     carregarFila();
 
     const channel = supabase
