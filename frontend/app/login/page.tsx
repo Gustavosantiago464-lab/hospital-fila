@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [usuario, setUsuario] = useState("");
   const [senha, setSenha] = useState("");
 
@@ -10,7 +13,7 @@ export default function LoginPage() {
     if (usuario === "admin" && senha === "123") {
       localStorage.setItem("logado", "true");
 
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } else {
       alert("Usuário ou senha inválidos");
     }
@@ -19,6 +22,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-black flex items-center justify-center text-white">
       <div className="bg-blue-950/60 border border-blue-400 p-10 rounded-3xl w-[400px] backdrop-blur-md">
+        
         <h1 className="text-5xl font-bold text-center mb-2">
           🏥 Hospital
         </h1>
