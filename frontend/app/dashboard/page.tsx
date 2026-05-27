@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -17,28 +16,11 @@ type Paciente = {
   senha: string;
 };
 
-export default function Home() {
-  const router = useRouter();
-
+export default function DashboardPage() {
   const [nome, setNome] = useState("");
   const [prioridade, setPrioridade] = useState("Normal");
   const [fila, setFila] = useState<Paciente[]>([]);
   const [chamado, setChamado] = useState<Paciente | null>(null);
-
-  // VERIFICA LOGIN
-  useEffect(() => {
-    const logado = localStorage.getItem("logado");
-
-    if (logado !== "true") {
-      router.push("/login");
-    }
-  }, []);
-
-  // SAIR
-  const sair = () => {
-    localStorage.removeItem("logado");
-    router.push("/login");
-  };
 
   // GERAR SENHA
   const gerarSenha = () => {
@@ -85,11 +67,9 @@ export default function Home() {
 
     setChamado(paciente);
 
-    // REMOVE DA FILA
     const novaFila = fila.slice(1);
     setFila(novaFila);
 
-    // SALVA NO HISTÓRICO
     await supabase.from("historico").insert([
       {
         nome: paciente.nome,
@@ -99,21 +79,32 @@ export default function Home() {
       },
     ]);
 
-    // REMOVE DA TABELA
     await supabase
       .from("pacientes")
       .delete()
       .eq("id", paciente.id);
 
-    // SALVA LOCAL
     localStorage.setItem(
       "ultimoPaciente",
       JSON.stringify(paciente)
     );
   };
 
+  // SAIR
+  const sair = () => {
+    localStorage.removeItem("logado");
+    window.location.href = "/login";
+  };
+
   // TEMPO REAL
   useEffect(() => {
+    const logado = localStorage.getItem("logado");
+
+    if (!logado) {
+      window.location.href = "/login";
+      return;
+    }
+
     carregarFila();
 
     const channel = supabase
@@ -141,7 +132,6 @@ export default function Home() {
       <div className="max-w-6xl mx-auto">
 
         <div className="flex items-center justify-between mb-10">
-
           <div>
             <h1 className="text-5xl font-bold">
               🏥 Hospital AI
@@ -154,7 +144,7 @@ export default function Home() {
 
           <button
             onClick={sair}
-            className="bg-red-600 hover:bg-red-700 transition px-6 py-3 rounded-xl font-bold"
+            className="bg-red-600 hover:bg-red-700 transition px-6 py-3 rounded-xl text-xl font-bold"
           >
             Sair
           </button>
@@ -189,7 +179,6 @@ export default function Home() {
 
           {/* NOVO PACIENTE */}
           <div className="bg-zinc-900 p-6 rounded-3xl">
-
             <h2 className="text-4xl font-bold mb-6">
               Novo Paciente
             </h2>
@@ -224,9 +213,7 @@ export default function Home() {
 
           {/* FILA */}
           <div className="bg-zinc-900 p-6 rounded-3xl">
-
             <div className="flex items-center justify-between mb-6">
-
               <h2 className="text-4xl font-bold">
                 Fila Hospitalar
               </h2>
