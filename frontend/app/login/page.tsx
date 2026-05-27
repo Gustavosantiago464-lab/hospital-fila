@@ -3,67 +3,59 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function Login() {
-  const [usuario, setUsuario] =
-    useState("");
-
-  const [senha, setSenha] =
-    useState("");
-
+export default function LoginPage() {
   const router = useRouter();
 
-  function entrar() {
-    if (
-      usuario === "admin" &&
-      senha === "123"
-    ) {
-      localStorage.setItem(
-        "logado",
-        "true"
-      );
+  const [usuario, setUsuario] = useState("");
+  const [senha, setSenha] = useState("");
 
-      router.push("/");
+  const fazerLogin = () => {
+    if (usuario === "admin" && senha === "123") {
+      localStorage.setItem("logado", "true");
+
+      router.push("/dashboard");
     } else {
-      alert("Login inválido");
+      alert("Usuário ou senha inválidos");
     }
-  }
+  };
 
   return (
-    <main className="min-h-screen bg-black flex items-center justify-center p-8">
-      <div className="bg-slate-900 border border-slate-700 p-10 rounded-[40px] w-full max-w-md shadow-2xl">
-        <h1 className="text-5xl font-black text-white text-center mb-3">
-          🏥 Hospital
-        </h1>
+    <main className="min-h-screen bg-black flex items-center justify-center text-white">
+      <div className="bg-blue-950/70 p-10 rounded-3xl w-[400px] border border-blue-400">
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold">
+            🏥 Hospital
+          </h1>
 
-        <p className="text-slate-400 text-center mb-10">
-          Sistema Inteligente
-        </p>
+          <p className="text-gray-300 mt-2">
+            Sistema Inteligente
+          </p>
+        </div>
 
-        <input
-          placeholder="Usuário"
-          value={usuario}
-          onChange={(e) =>
-            setUsuario(e.target.value)
-          }
-          className="w-full bg-slate-800 text-white p-5 rounded-2xl mb-5 text-xl"
-        />
+        <div className="space-y-4">
+          <input
+            type="text"
+            placeholder="Usuário"
+            value={usuario}
+            onChange={(e) => setUsuario(e.target.value)}
+            className="w-full p-4 rounded-xl bg-blue-900/60"
+          />
 
-        <input
-          type="password"
-          placeholder="Senha"
-          value={senha}
-          onChange={(e) =>
-            setSenha(e.target.value)
-          }
-          className="w-full bg-slate-800 text-white p-5 rounded-2xl mb-8 text-xl"
-        />
+          <input
+            type="password"
+            placeholder="Senha"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            className="w-full p-4 rounded-xl bg-blue-900/60"
+          />
 
-        <button
-          onClick={entrar}
-          className="w-full bg-blue-600 hover:bg-blue-700 transition p-5 rounded-2xl text-2xl font-black text-white"
-        >
-          Entrar
-        </button>
+          <button
+            onClick={fazerLogin}
+            className="w-full bg-blue-600 hover:bg-blue-700 transition p-4 rounded-xl text-2xl font-bold"
+          >
+            Entrar
+          </button>
+        </div>
       </div>
     </main>
   );
