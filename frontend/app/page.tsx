@@ -1,162 +1,176 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+type Paciente = {
+  id?: number;
+  nome: string;
+  prioridade: string;
+  sala: string;
+  senha: string;
+};
 
 export default function Home() {
-  const router = useRouter();
-
-  const [fila, setFila] = useState<any[]>([]);
   const [nome, setNome] = useState("");
-  const [prioridade, setPrioridade] = useState("normal");
+  const [prioridade, setPrioridade] = useState("Normal");
+  const [fila, setFila] = useState<Paciente[]>([]);
+  const [chamado, setChamado] = useState<Paciente | null>(null);
 
-  const [pacienteChamado, setPacienteChamado] =
-    useState<any>(null);
+  // GERAR SENHA
+  const gerarSenha = () => {
+    const numero = fila.length + 1;
+    return `A${String(numero).padStart(3, "0")}`;
+  };
 
-  async function carregarFila() {
-    const resposta = await fetch("http://localhost:3001/fila");
-    const dados = await resposta.json();
-    setFila(dados);
-  }
+  // CARREGAR FILA
+  const carregarFila = async () => {
+    const { data } = await supabase
+      .from("pacientes")
+      .select("*")
+      .order("id", { ascending: true });
 
-  async function adicionarPaciente() {
+    if (data) {
+      setFila(data);
+    }
+  };
+
+  // ADICIONAR PACIENTE
+  const adicionarPaciente = async () => {
     if (!nome) return;
 
-    const senha =
-      "A" +
-      String(Date.now()).slice(-3);
+    const senha = gerarSenha();
 
-    await fetch("http://localhost:3001/fila", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        nome,
-        prioridade,
-        senha,
-      }),
-    });
+    const novoPaciente = {
+      nome,
+      prioridade,
+      sala: `Sala 0${Math.floor(Math.random() * 5) + 1}`,
+      senha,
+    };
+
+    await supabase.from("pacientes").insert([novoPaciente]);
 
     setNome("");
     carregarFila();
-  }
+  };
 
-  async function removerPaciente(id: number) {
-    await fetch(`http://localhost:3001/fila/${id}`, {
-      method: "DELETE",
-    });
-
-    carregarFila();
-  }
-
-  async function chamarProximo() {
-    if (fila.length === 0) {
-      alert("Nenhum paciente na fila");
-      return;
-    }
+  // CHAMAR PRÓXIMO
+  const chamarProximo = async () => {
+    if (fila.length === 0) return;
 
     const paciente = fila[0];
 
-    // SOM
-    const audio = new Audio("/som.mp3");
-    audio.play();
-
-    setPacienteChamado(paciente);
-
-    // ENVIA PARA TV
-    await fetch("http://localhost:3001/chamar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(paciente),
-    });
+    setChamado(paciente);
 
     // REMOVE DA FILA
-    await removerPaciente(paciente.id);
+    const novaFila = fila.slice(1);
+    setFila(novaFila);
 
-    setTimeout(() => {
-      setPacienteChamado(null);
-    }, 5000);
-  }
+    // SALVA NO HISTÓRICO
+    await supabase.from("historico").insert([
+      {
+        nome: paciente.nome,
+        prioridade: paciente.prioridade,
+        sala: paciente.sala,
+        senha: paciente.senha,
+      },
+    ]);
 
+    // REMOVE DA TABELA PACIENTES
+    await supabase
+      .from("pacientes")
+      .delete()
+      .eq("id", paciente.id);
+
+    // SALVA LOCAL
+    localStorage.setItem(
+      "ultimoPaciente",
+      JSON.stringify(paciente)
+    );
+  };
+
+  // TEMPO REAL
   useEffect(() => {
-    const logado =
-      localStorage.getItem("logado");
-
-    if (!logado) {
-      router.push("/login");
-    }
-
     carregarFila();
 
-    const intervalo = setInterval(() => {
-      carregarFila();
-    }, 2000);
+    const channel = supabase
+      .channel("pacientes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pacientes",
+        },
+        () => {
+          carregarFila();
+        }
+      )
+      .subscribe();
 
-    return () => clearInterval(intervalo);
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-8">
+    <main className="min-h-screen bg-black text-white p-8">
       <div className="max-w-6xl mx-auto">
-        {/* TOPO */}
-        <div className="mb-10 flex justify-between items-center">
+        <div className="flex items-center justify-between mb-10">
           <div>
             <h1 className="text-5xl font-bold">
-              🏥 Sistema Hospitalar
+              🏥 Hospital AI
             </h1>
 
-            <p className="text-slate-400 mt-2">
-              Controle inteligente de pacientes
+            <p className="text-gray-400 mt-2">
+              Sistema Inteligente Hospitalar
             </p>
           </div>
-
-          <button
-            onClick={() => {
-              localStorage.removeItem("logado");
-              router.push("/login");
-            }}
-            className="bg-red-600 hover:bg-red-700 px-5 py-3 rounded-xl font-bold"
-          >
-            Sair
-          </button>
         </div>
 
-        {/* PAINEL CHAMADA */}
-        {pacienteChamado && (
-          <div className="bg-green-600 rounded-3xl p-10 mb-8 text-center animate-pulse shadow-2xl">
-            <h2 className="text-3xl font-bold mb-4">
-              🔊 CHAMANDO PACIENTE
+        {/* PACIENTE CHAMADO */}
+        {chamado && (
+          <div className="bg-green-500 rounded-3xl p-10 text-center mb-10">
+            <h2 className="text-5xl font-bold mb-4">
+              📢 CHAMANDO PACIENTE
             </h2>
 
-            <h1 className="text-7xl font-extrabold">
-              {pacienteChamado.senha}
+            <h1 className="text-9xl font-black">
+              {chamado.senha}
             </h1>
 
-            <p className="text-4xl mt-4 font-bold">
-              {pacienteChamado.nome}
+            <p className="text-4xl mt-4">
+              {chamado.nome}
             </p>
 
-            <p className="text-2xl mt-4">
-              Dirigir-se para Sala 03
+            <p className="text-2xl mt-3">
+              🟢 {chamado.prioridade}
             </p>
+
+            <div className="bg-white text-black inline-block px-8 py-4 rounded-2xl mt-6 text-4xl font-bold">
+              🚪 {chamado.sala}
+            </div>
           </div>
         )}
 
         <div className="grid md:grid-cols-2 gap-8">
-          {/* FORM */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
-            <h2 className="text-3xl font-bold mb-6">
+          {/* NOVO PACIENTE */}
+          <div className="bg-zinc-900 p-6 rounded-3xl">
+            <h2 className="text-4xl font-bold mb-6">
               Novo Paciente
             </h2>
 
             <input
+              type="text"
+              placeholder="Nome do paciente"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
-              placeholder="Nome do paciente"
-              className="w-full p-4 rounded-xl bg-slate-800 border border-slate-700 mb-4 outline-none"
+              className="w-full p-4 rounded-xl bg-zinc-800 mb-4 text-xl"
             />
 
             <select
@@ -164,37 +178,33 @@ export default function Home() {
               onChange={(e) =>
                 setPrioridade(e.target.value)
               }
-              className="w-full p-4 rounded-xl bg-slate-800 border border-slate-700 mb-4 outline-none"
+              className="w-full p-4 rounded-xl bg-zinc-800 mb-4 text-xl"
             >
-              <option value="normal">
-                🟢 Normal
-              </option>
-
-              <option value="alta">
-                🔴 Alta
-              </option>
+              <option>Normal</option>
+              <option>Urgente</option>
+              <option>Emergência</option>
             </select>
 
             <button
               onClick={adicionarPaciente}
-              className="w-full bg-blue-600 hover:bg-blue-700 transition p-4 rounded-xl font-bold text-lg"
+              className="w-full bg-blue-600 hover:bg-blue-700 transition p-4 rounded-xl text-2xl font-bold"
             >
-              Adicionar Paciente
+              + Adicionar Paciente
             </button>
           </div>
 
           {/* FILA */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold">
+          <div className="bg-zinc-900 p-6 rounded-3xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-4xl font-bold">
                 Fila Hospitalar
               </h2>
 
               <button
                 onClick={chamarProximo}
-                className="bg-green-600 hover:bg-green-700 transition px-4 py-2 rounded-xl font-bold"
+                className="bg-green-500 hover:bg-green-600 transition px-6 py-4 rounded-2xl text-xl font-bold"
               >
-                Chamar Próximo
+                📢 Chamar Próximo
               </button>
             </div>
 
@@ -202,36 +212,25 @@ export default function Home() {
               {fila.map((paciente) => (
                 <div
                   key={paciente.id}
-                  className={`p-5 rounded-2xl flex justify-between items-center transition hover:scale-[1.02]
-                  ${
-                    paciente.prioridade === "alta"
-                      ? "bg-red-900"
-                      : "bg-slate-800"
-                  }`}
+                  className="bg-zinc-800 p-5 rounded-2xl flex items-center justify-between"
                 >
                   <div>
-                    <h3 className="text-2xl font-bold">
+                    <h3 className="text-3xl font-bold text-cyan-400">
                       {paciente.senha}
                     </h3>
 
-                    <p className="text-xl">
+                    <p className="text-2xl">
                       {paciente.nome}
                     </p>
 
-                    <p className="text-slate-300">
-                      Prioridade:{" "}
-                      {paciente.prioridade}
+                    <p className="text-lg text-green-400">
+                      🟢 {paciente.prioridade}
                     </p>
                   </div>
 
-                  <button
-                    onClick={() =>
-                      removerPaciente(paciente.id)
-                    }
-                    className="bg-red-500 hover:bg-red-600 transition px-5 py-2 rounded-xl font-bold"
-                  >
-                    Remover
-                  </button>
+                  <div className="bg-blue-600 px-5 py-3 rounded-xl text-xl font-bold">
+                    {paciente.sala}
+                  </div>
                 </div>
               ))}
             </div>

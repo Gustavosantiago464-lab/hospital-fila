@@ -1,65 +1,90 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-export default function TVHospital() {
-  const [paciente, setPaciente] = useState<any>(null);
+type Paciente = {
+  id: number;
+  nome: string;
+  prioridade: string;
+  sala: string;
+  senha: string;
+};
 
-  async function carregarUltimoChamado() {
-    try {
-      const resposta = await fetch(
-        "http://localhost:3001/ultimo"
-      );
+export default function TVPage() {
+  const [paciente, setPaciente] = useState<Paciente | null>(null);
 
-      const dados = await resposta.json();
+  async function carregarUltimo() {
+    const { data } = await supabase
+      .from("historico")
+      .select("*")
+      .order("id", { ascending: false })
+      .limit(1)
+      .single();
 
-      setPaciente(dados);
-    } catch (error) {
-      console.log(error);
+    if (data) {
+      setPaciente(data);
     }
   }
 
   useEffect(() => {
-    carregarUltimoChamado();
+    carregarUltimo();
 
-    const intervalo = setInterval(() => {
-      carregarUltimoChamado();
-    }, 2000);
+    const channel = supabase
+      .channel("tv-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "historico",
+        },
+        (payload) => {
+          setPaciente(payload.new as Paciente);
+        }
+      )
+      .subscribe();
 
-    return () => clearInterval(intervalo);
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-10">
-      <div className="text-center w-full">
-        <h1 className="text-7xl font-bold mb-12 text-green-400">
-          🏥 PAINEL HOSPITALAR
-        </h1>
+    <main className="min-h-screen bg-black flex items-center justify-center text-white p-10">
+      {!paciente ? (
+        <div className="text-center">
+          <h1 className="text-6xl font-bold text-green-500">
+            🏥 PAINEL HOSPITALAR
+          </h1>
 
-        {paciente ? (
-          <div className="bg-slate-900 border border-green-500 rounded-[40px] p-20 shadow-2xl animate-pulse">
-            <p className="text-4xl text-slate-400 mb-6">
-              SENHA CHAMADA
-            </p>
-
-            <h2 className="text-[170px] font-extrabold text-green-400 leading-none">
-              {paciente.senha}
-            </h2>
-
-            <p className="text-6xl mt-10 font-bold">
-              {paciente.nome}
-            </p>
-
-            <div className="mt-12 text-5xl">
-              🚪 Sala 03
-            </div>
-          </div>
-        ) : (
-          <div className="text-6xl text-slate-500">
+          <p className="text-4xl mt-8">
             Nenhum paciente chamado
+          </p>
+        </div>
+      ) : (
+        <div className="bg-green-500 text-center rounded-3xl p-16 w-full max-w-5xl">
+          <h1 className="text-5xl font-bold mb-8">
+            🔊 CHAMANDO PACIENTE
+          </h1>
+
+          <div className="text-9xl font-extrabold">
+            {paciente.senha}
           </div>
-        )}
-      </div>
+
+          <div className="text-5xl mt-6">
+            {paciente.nome}
+          </div>
+
+          <div className="text-3xl mt-6">
+            🟢 {paciente.prioridade}
+          </div>
+
+          <div className="text-5xl mt-10 bg-white text-black inline-block px-10 py-5 rounded-2xl font-bold">
+            🚪 Sala {paciente.sala}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
