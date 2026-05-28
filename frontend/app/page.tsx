@@ -17,46 +17,12 @@ type Paciente = {
 };
 
 export default function Home() {
-  const [logado, setLogado] = useState(false);
-
-  const [usuario, setUsuario] = useState("");
-  const [senhaLogin, setSenhaLogin] = useState("");
+  const [entrarSistema, setEntrarSistema] = useState(false);
 
   const [nome, setNome] = useState("");
   const [prioridade, setPrioridade] = useState("Normal");
   const [fila, setFila] = useState<Paciente[]>([]);
   const [chamado, setChamado] = useState<Paciente | null>(null);
-
-  // LOGIN
-  const entrar = () => {
-    if (usuario === "admin" && senhaLogin === "123") {
-      setLogado(true);
-      localStorage.setItem("logado", "true");
-    } else {
-      alert("Usuário ou senha inválidos");
-    }
-  };
-
-  // SAIR
-  const sair = () => {
-    localStorage.removeItem("logado");
-    setLogado(false);
-  };
-
-  // VERIFICAR LOGIN
-  useEffect(() => {
-    const salvo = localStorage.getItem("logado");
-
-    if (salvo === "true") {
-      setLogado(true);
-    }
-  }, []);
-
-  // GERAR SENHA
-  const gerarSenha = () => {
-    const numero = fila.length + 1;
-    return `A${String(numero).padStart(3, "0")}`;
-  };
 
   // CARREGAR FILA
   const carregarFila = async () => {
@@ -68,56 +34,6 @@ export default function Home() {
     if (data) {
       setFila(data);
     }
-  };
-
-  // ADICIONAR PACIENTE
-  const adicionarPaciente = async () => {
-    if (!nome) return;
-
-    const senha = gerarSenha();
-
-    const novoPaciente = {
-      nome,
-      prioridade,
-      sala: `Sala 0${Math.floor(Math.random() * 5) + 1}`,
-      senha,
-    };
-
-    await supabase.from("pacientes").insert([novoPaciente]);
-
-    setNome("");
-    carregarFila();
-  };
-
-  // CHAMAR PRÓXIMO
-  const chamarProximo = async () => {
-    if (fila.length === 0) return;
-
-    const paciente = fila[0];
-
-    setChamado(paciente);
-
-    const novaFila = fila.slice(1);
-    setFila(novaFila);
-
-    await supabase.from("historico").insert([
-      {
-        nome: paciente.nome,
-        prioridade: paciente.prioridade,
-        sala: paciente.sala,
-        senha: paciente.senha,
-      },
-    ]);
-
-    await supabase
-      .from("pacientes")
-      .delete()
-      .eq("id", paciente.id);
-
-    localStorage.setItem(
-      "ultimoPaciente",
-      JSON.stringify(paciente)
-    );
   };
 
   // TEMPO REAL
@@ -144,47 +60,70 @@ export default function Home() {
     };
   }, []);
 
-  // LOGIN SCREEN
-  if (!logado) {
+  // GERAR SENHA
+  const gerarSenha = () => {
+    const numero = fila.length + 1;
+    return `A${String(numero).padStart(3, "0")}`;
+  };
+
+  // ADICIONAR
+  const adicionarPaciente = async () => {
+    if (!nome) return;
+
+    const senha = gerarSenha();
+
+    const novoPaciente = {
+      nome,
+      prioridade,
+      sala: `Sala 0${Math.floor(Math.random() * 5) + 1}`,
+      senha,
+    };
+
+    await supabase.from("pacientes").insert([novoPaciente]);
+
+    setNome("");
+    carregarFila();
+  };
+
+  // CHAMAR
+  const chamarProximo = async () => {
+    if (fila.length === 0) return;
+
+    const paciente = fila[0];
+
+    setChamado(paciente);
+
+    setFila(fila.slice(1));
+
+    await supabase.from("historico").insert([
+      {
+        nome: paciente.nome,
+        prioridade: paciente.prioridade,
+        sala: paciente.sala,
+        senha: paciente.senha,
+      },
+    ]);
+
+    await supabase
+      .from("pacientes")
+      .delete()
+      .eq("id", paciente.id);
+  };
+
+  // LOGIN SIMPLES
+  if (!entrarSistema) {
     return (
       <main className="min-h-screen bg-black flex items-center justify-center text-white">
-        <div className="bg-zinc-900 p-10 rounded-3xl w-[400px]">
-          <h1 className="text-5xl font-bold text-center mb-3">
-            🏥 Hospital AI
-          </h1>
-
-          <p className="text-center text-gray-400 mb-8">
-            Sistema Inteligente Hospitalar
-          </p>
-
-          <input
-            type="text"
-            placeholder="Usuário"
-            value={usuario}
-            onChange={(e) => setUsuario(e.target.value)}
-            className="w-full p-4 rounded-xl bg-zinc-800 mb-4"
-          />
-
-          <input
-            type="password"
-            placeholder="Senha"
-            value={senhaLogin}
-            onChange={(e) => setSenhaLogin(e.target.value)}
-            className="w-full p-4 rounded-xl bg-zinc-800 mb-6"
-          />
-
-          <button
-            onClick={entrar}
-            className="w-full bg-blue-600 hover:bg-blue-700 transition p-4 rounded-xl text-2xl font-bold"
-          >
-            Entrar
-          </button>
-        </div>
+        <button
+          onClick={() => setEntrarSistema(true)}
+          className="bg-blue-600 hover:bg-blue-700 transition px-12 py-6 rounded-3xl text-4xl font-bold"
+        >
+          ENTRAR NO SISTEMA
+        </button>
       </main>
     );
   }
 
-  // DASHBOARD
   return (
     <main className="min-h-screen bg-black text-white p-8">
       <div className="max-w-6xl mx-auto">
@@ -201,7 +140,7 @@ export default function Home() {
           </div>
 
           <button
-            onClick={sair}
+            onClick={() => setEntrarSistema(false)}
             className="bg-red-600 hover:bg-red-700 transition px-6 py-3 rounded-xl text-xl font-bold"
           >
             Sair
