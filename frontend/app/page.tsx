@@ -17,8 +17,6 @@ type Paciente = {
 };
 
 export default function Home() {
-  const [entrarSistema, setEntrarSistema] = useState(false);
-
   const [nome, setNome] = useState("");
   const [prioridade, setPrioridade] = useState("Normal");
   const [fila, setFila] = useState<Paciente[]>([]);
@@ -110,20 +108,6 @@ export default function Home() {
       .eq("id", paciente.id);
   };
 
-  // LOGIN SIMPLES
-  if (!entrarSistema) {
-    return (
-      <main className="min-h-screen bg-black flex items-center justify-center text-white">
-        <button
-          onClick={() => setEntrarSistema(true)}
-          className="bg-blue-600 hover:bg-blue-700 transition px-12 py-6 rounded-3xl text-4xl font-bold"
-        >
-          ENTRAR NO SISTEMA
-        </button>
-      </main>
-    );
-  }
-
   return (
     <main className="min-h-screen bg-black text-white p-8">
       <div className="max-w-6xl mx-auto">
@@ -138,13 +122,6 @@ export default function Home() {
               Sistema Inteligente Hospitalar
             </p>
           </div>
-
-          <button
-            onClick={() => setEntrarSistema(false)}
-            className="bg-red-600 hover:bg-red-700 transition px-6 py-3 rounded-xl text-xl font-bold"
-          >
-            Sair
-          </button>
         </div>
 
         {chamado && (
@@ -207,8 +184,8 @@ export default function Home() {
           </div>
 
           <div className="bg-zinc-900 p-6 rounded-3xl">
-            <div className="flex items-center justify-between mb-6">
 
+            <div className="flex items-center justify-between mb-6">
               <h2 className="text-4xl font-bold">
                 Fila Hospitalar
               </h2>
