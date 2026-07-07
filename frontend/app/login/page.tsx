@@ -22,16 +22,18 @@ export default function LoginPage() {
       alert("Email ou senha inválidos");
       return;
     }
-
+  
     const {
       data: { session },
     } = await supabase.auth.getSession();
+    alert(session?.user.id);
      const { data: usuario, error: erroUsuario } = await supabase
     .from("usuarios")
     .select("*")
     .eq("uuid", session?.user.id)
     .single();
-  
+    alert(JSON.stringify(usuario));
+    alert(JSON.stringify(erroUsuario));
   console.log("UID:", session?.user.id);
   console.log("Usuário:", usuario);
   console.log("Erro:", erroUsuario);
