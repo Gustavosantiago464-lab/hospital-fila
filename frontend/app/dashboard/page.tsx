@@ -47,7 +47,7 @@ export default function Dashboard() {
         const { data: usuario } = await supabase
           .from("usuarios")
           .select("cargo")
-          .eq("id", session.user.id)
+          .eq("uuid", session.user.id)
           .single();
       
         if (usuario?.cargo === "medico") {
