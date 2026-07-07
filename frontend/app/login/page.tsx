@@ -26,14 +26,15 @@ export default function LoginPage() {
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    
-    const { data: usuario } = await supabase
+     const { data: usuario, error: erroUsuario } = await supabase
     .from("usuarios")
-    .select("cargo")
+    .select("*")
     .eq("uuid", session?.user.id)
     .single();
-    console.log("UID:", session?.user.id);
-console.log("Usuário:", usuario);
+  
+  console.log("UID:", session?.user.id);
+  console.log("Usuário:", usuario);
+  console.log("Erro:", erroUsuario);
     
     if (usuario?.cargo === "medico") {
       window.location.href = "/medico";
