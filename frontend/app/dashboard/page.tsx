@@ -11,6 +11,11 @@ const supabase = createClient(
 type Paciente = {
   id?: number;
   nome: string;
+  cpf?: string;
+  telefone?: string;
+  data_nascimento?: string;
+  sexo?: string;
+  alergias?: string;
   prioridade: string;
   sala: string;
   senha: string;
@@ -20,16 +25,43 @@ export default function Dashboard() {
   const [nome, setNome] = useState("");
   const [prioridade, setPrioridade] = useState("Normal");
   const [fila, setFila] = useState<Paciente[]>([]);
+  const [busca, setBusca] = useState("");
   const [chamado, setChamado] = useState<Paciente | null>(null);
+  const [pacienteSelecionado, setPacienteSelecionado] =
+  useState<Paciente | null>(null);
+  const [modoEdicao, setModoEdicao] = useState(false);
   const [atendidosHoje, setAtendidosHoje] = useState(0);
   const [atendidosTotal, setAtendidosTotal] = useState(0);
-
+  const [cpf, setCpf] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
+  const [sexo, setSexo] = useState("Masculino");
+  const [alergias, setAlergias] = useState("")
+  
   useEffect(() => {
     const verificarSessao = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-  
+      if (session) {
+        const { data: usuario } = await supabase
+          .from("usuarios")
+          .select("cargo")
+          .eq("id", session.user.id)
+          .single();
+      
+        if (usuario?.cargo === "medico") {
+          window.location.href = "/medico";
+          return;
+        }
+      }
+      setNome("");
+      setCpf("");
+      setTelefone("");
+      setDataNascimento("");
+      setSexo("Masculino");
+      setAlergias("");
+      setPrioridade("Normal");
       if (!session) {
         window.location.href = "/login";
       }
@@ -72,17 +104,79 @@ export default function Dashboard() {
 
     const novoPaciente = {
       nome,
+      cpf,
+      telefone,
+      data_nascimento: dataNascimento,
+      sexo,
+      alergias,
       prioridade,
-      sala: `Sala 0${Math.floor(Math.random() * 5) + 1}`,
+      status: "Aguardando",
+      sala: `Sala ${Math.floor(Math.random() * 5) + 1}`,
       senha,
-    };
+    }; 
 
-    await supabase.from("pacientes").insert([novoPaciente]);
-
+    const { error } = await supabase
+    .from("pacientes")
+    .insert([novoPaciente]);
+  
+  if (error) {
+    alert(error.message);
+    console.log(error);
+    return;
+  }
     setNome("");
     carregarFila();
   };
-
+  const salvarPaciente = async () => {
+    if (!pacienteSelecionado) return;
+  
+    const { error } = await supabase
+      .from("pacientes")
+      .update({
+        nome: pacienteSelecionado.nome,
+        cpf: pacienteSelecionado.cpf,
+        telefone: pacienteSelecionado.telefone,
+        data_nascimento: pacienteSelecionado.data_nascimento,
+        sexo: pacienteSelecionado.sexo,
+        alergias: pacienteSelecionado.alergias,
+        prioridade: pacienteSelecionado.prioridade,
+      })
+      .eq("id", pacienteSelecionado.id);
+  
+    if (error) {
+      alert(error.message);
+      return;
+    }
+  
+    alert("Paciente atualizado com sucesso!");
+    setModoEdicao(false);
+    carregarFila();
+  };
+  const excluirPaciente = async () => {
+    if (!pacienteSelecionado) return;
+  
+    const confirmar = confirm(
+      "Tem certeza que deseja excluir este paciente?"
+    );
+  
+    if (!confirmar) return;
+  
+    const { error } = await supabase
+      .from("pacientes")
+      .delete()
+      .eq("id", pacienteSelecionado.id);
+  
+    if (error) {
+      alert(error.message);
+      return;
+    }
+  
+    alert("Paciente excluído com sucesso!");
+  
+    setPacienteSelecionado(null);
+    setModoEdicao(false);
+    carregarFila();
+  };
   const chamarProximo = async () => {
     if (fila.length === 0) return;
 
@@ -264,7 +358,45 @@ export default function Dashboard() {
               onChange={(e) => setNome(e.target.value)}
               className="w-full p-4 rounded-xl bg-zinc-800 mb-4 text-xl"
             />
+<input
+  type="text"
+  placeholder="CPF"
+  value={cpf}
+  onChange={(e) => setCpf(e.target.value)}
+  className="w-full p-4 rounded-xl bg-zinc-800 mb-4 text-xl"
+/>
 
+<input
+  type="text"
+  placeholder="Telefone"
+  value={telefone}
+  onChange={(e) => setTelefone(e.target.value)}
+  className="w-full p-4 rounded-xl bg-zinc-800 mb-4 text-xl"
+/>
+
+<input
+  type="date"
+  value={dataNascimento}
+  onChange={(e) => setDataNascimento(e.target.value)}
+  className="w-full p-4 rounded-xl bg-zinc-800 mb-4 text-xl"
+/>
+
+<select
+  value={sexo}
+  onChange={(e) => setSexo(e.target.value)}
+  className="w-full p-4 rounded-xl bg-zinc-800 mb-4 text-xl"
+>
+  <option>Masculino</option>
+  <option>Feminino</option>
+  <option>Outro</option>
+</select>
+<input
+  type="text"
+  placeholder="Alergias"
+  value={alergias}
+  onChange={(e) => setAlergias(e.target.value)}
+  className="w-full p-4 rounded-xl bg-zinc-800 mb-4 text-xl"
+/>
             <select
               value={prioridade}
               onChange={(e) =>
@@ -287,24 +419,45 @@ export default function Dashboard() {
 
           <div className="bg-zinc-900 p-6 rounded-3xl">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-4xl font-bold">
-                Fila Hospitalar
-              </h2>
+            <h2 className="text-4xl font-bold">
+  Fila Hospitalar
+</h2>
 
-              <button
-                onClick={chamarProximo}
-                className="bg-green-500 hover:bg-green-600 transition px-6 py-4 rounded-2xl text-xl font-bold"
-              >
-                📢 Chamar Próximo
-              </button>
+<button
+  onClick={chamarProximo}
+  className="bg-green-500 hover:bg-green-600 transition px-6 py-4 rounded-2xl text-xl font-bold"
+>
+  📢 Chamar Próximo
+</button>
             </div>
-
+            <input
+  type="text"
+  placeholder="Pesquisar por nome, CPF ou telefone"
+  value={busca}
+  onChange={(e) => setBusca(e.target.value)}
+  className="w-full p-3 rounded-xl bg-zinc-800 mb-4"
+/>
             <div className="space-y-4">
-              {fila.map((paciente) => (
-                <div
-                  key={paciente.id}
-                  className="bg-zinc-800 p-5 rounded-2xl flex items-center justify-between"
-                >
+            {fila
+  .filter((paciente) =>
+    paciente.nome
+      ?.toLowerCase()
+      .includes(busca.toLowerCase()) ||
+    paciente.cpf
+      ?.toLowerCase()
+      .includes(busca.toLowerCase()) ||
+    paciente.telefone
+      ?.toLowerCase()
+      .includes(busca.toLowerCase())
+  )
+  .map((paciente) => (
+    <div
+    key={paciente.id}
+    onClick={() => {
+      setPacienteSelecionado(paciente);
+    }}
+    className="bg-zinc-800 p-5 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-zinc-700"
+  >
                   <div>
                     <h3 className="text-3xl font-bold text-cyan-400">
                       {paciente.senha}
@@ -328,6 +481,158 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      {pacienteSelecionado && (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
+    <div className="bg-zinc-900 p-8 rounded-3xl w-[500px]">
+      <h2 className="text-3xl font-bold mb-6">
+        Dados do Paciente
+      </h2>
+
+      {modoEdicao ? (
+  <div className="space-y-3">
+
+    <input
+      type="text"
+      placeholder="Nome"
+      value={pacienteSelecionado.nome}
+      onChange={(e) =>
+        setPacienteSelecionado({
+          ...pacienteSelecionado,
+          nome: e.target.value,
+        })
+      }
+      className="w-full p-3 rounded-xl bg-zinc-800"
+    />
+
+    <input
+      type="text"
+      placeholder="CPF"
+      value={pacienteSelecionado.cpf || ""}
+      onChange={(e) =>
+        setPacienteSelecionado({
+          ...pacienteSelecionado,
+          cpf: e.target.value,
+        })
+      }
+      className="w-full p-3 rounded-xl bg-zinc-800"
+    />
+
+    <input
+      type="text"
+      placeholder="Telefone"
+      value={pacienteSelecionado.telefone || ""}
+      onChange={(e) =>
+        setPacienteSelecionado({
+          ...pacienteSelecionado,
+          telefone: e.target.value,
+        })
+      }
+      className="w-full p-3 rounded-xl bg-zinc-800"
+    />
+
+    <input
+      type="date"
+      value={pacienteSelecionado.data_nascimento || ""}
+      onChange={(e) =>
+        setPacienteSelecionado({
+          ...pacienteSelecionado,
+          data_nascimento: e.target.value,
+        })
+      }
+      className="w-full p-3 rounded-xl bg-zinc-800"
+    />
+
+    <select
+      value={pacienteSelecionado.sexo || ""}
+      onChange={(e) =>
+        setPacienteSelecionado({
+          ...pacienteSelecionado,
+          sexo: e.target.value,
+        })
+      }
+      className="w-full p-3 rounded-xl bg-zinc-800"
+    >
+      <option>Masculino</option>
+      <option>Feminino</option>
+      <option>Outro</option>
+    </select>
+
+    <input
+      type="text"
+      placeholder="Alergias"
+      value={pacienteSelecionado.alergias || ""}
+      onChange={(e) =>
+        setPacienteSelecionado({
+          ...pacienteSelecionado,
+          alergias: e.target.value,
+        })
+      }
+      className="w-full p-3 rounded-xl bg-zinc-800"
+    />
+
+    <select
+      value={pacienteSelecionado.prioridade}
+      onChange={(e) =>
+        setPacienteSelecionado({
+          ...pacienteSelecionado,
+          prioridade: e.target.value,
+        })
+      }
+      className="w-full p-3 rounded-xl bg-zinc-800"
+    >
+      <option>Normal</option>
+      <option>Urgente</option>
+      <option>Emergência</option>
+    </select>
+
+  </div>
+) : (
+  <>
+    <p><b>Nome:</b> {pacienteSelecionado.nome}</p>
+    <p><b>CPF:</b> {pacienteSelecionado.cpf}</p>
+    <p><b>Telefone:</b> {pacienteSelecionado.telefone}</p>
+    <p><b>Data Nasc.:</b> {pacienteSelecionado.data_nascimento}</p>
+    <p><b>Sexo:</b> {pacienteSelecionado.sexo}</p>
+    <p><b>Alergias:</b> {pacienteSelecionado.alergias}</p>
+    <p><b>Senha:</b> {pacienteSelecionado.senha}</p>
+    <p><b>Prioridade:</b> {pacienteSelecionado.prioridade}</p>
+    <p><b>Sala:</b> {pacienteSelecionado.sala}</p>
+  </>
+)}
+      {modoEdicao ? (
+  <button
+    onClick={salvarPaciente}
+    className="mb-3 w-full bg-green-600 hover:bg-green-700 p-3 rounded-xl font-bold"
+  >
+    💾 Salvar Alterações
+  </button>
+) : (
+  <button
+    onClick={() => setModoEdicao(true)}
+    className="mb-3 w-full bg-yellow-500 hover:bg-yellow-600 p-3 rounded-xl font-bold"
+  >
+    ✏️ Editar Paciente
+  </button>
+)}
+
+<button
+  onClick={excluirPaciente}
+  className="mb-3 w-full bg-red-700 hover:bg-red-800 p-3 rounded-xl font-bold"
+>
+  🗑️ Excluir Paciente
+</button>
+<button
+  onClick={() => {
+    setPacienteSelecionado(null);
+    setModoEdicao(false);
+  }}
+  className="mt-6 w-full bg-red-600 p-3 rounded-xl"
+>
+  Fechar
+</button>
+    </div>
+  </div>
+)}
     </main>
   );
 }

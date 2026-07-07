@@ -23,7 +23,23 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.href = "/dashboard";
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    
+    const { data: usuario } = await supabase
+    .from("usuarios")
+    .select("cargo")
+    .eq("uuid", session?.user.id)
+    .single();
+    console.log("UID:", session?.user.id);
+console.log("Usuário:", usuario);
+    
+    if (usuario?.cargo === "medico") {
+      window.location.href = "/medico";
+    } else {
+      window.location.href = "/dashboard";
+    }
   };
 
   return (
