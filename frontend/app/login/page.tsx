@@ -38,11 +38,15 @@ export default function LoginPage() {
   console.log("Usuário:", usuario);
   console.log("Erro:", erroUsuario);
     
-    if (usuario?.cargo === "medico") {
-      window.location.href = "/medico";
-    } else {
-      window.location.href = "/dashboard";
-    }
+  alert("Cargo: " + usuario?.cargo);
+
+  if (usuario?.cargo === "medico") {
+    alert("Entrando em /medico");
+    window.location.href = "/medico";
+  } else {
+    alert("Entrando em /dashboard");
+    window.location.href = "/dashboard";
+  }
   };
 
   return (
